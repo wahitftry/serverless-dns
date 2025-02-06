@@ -88,3 +88,6 @@ CF_LOGPUSH_R2_PATH = "qlog/"
 # CF_API_TOKEN = ""
 # CF_LOGPUSH_R2_SECRET_KEY = ""
 # CF_LOGPUSH_R2_ACCESS_KEY = ""
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
