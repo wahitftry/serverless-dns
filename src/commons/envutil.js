@@ -184,6 +184,16 @@ export function tlsKey() {
   return envManager.get("TLS_KEY") || null;
 }
 
+export function allowDomainFronting() {
+  if (!envManager) return false;
+  return envManager.get("TLS_ALLOW_ANY_SNI") || false;
+}
+
+export function kdfSvcSecretHex() {
+  if (!envManager) return null;
+  return envManager.get("KDF_SVC") || null;
+}
+
 export function cacheTtl() {
   if (!envManager) return 0;
   return envManager.get("CACHE_TTL");
@@ -260,6 +270,12 @@ export function blocklistDownloadOnly() {
   return envManager.get("BLOCKLIST_DOWNLOAD_ONLY");
 }
 
+export function renewBlocklistsThresholdInWeeks() {
+  if (!envManager) return false;
+
+  return envManager.get("AUTO_RENEW_BLOCKLISTS_OLDER_THAN") || -1;
+}
+
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
 export function dohBackendPort() {
   return 8080;
@@ -296,6 +312,12 @@ export function imageRef() {
   if (!onFly()) return "";
 
   return envManager.get("FLY_IMAGE_REF") || "";
+}
+
+export function hostId() {
+  if (!envManager) return "";
+
+  return envManager.get("HOST_IDENTIFIER") || "";
 }
 
 export function secretb64() {
@@ -390,7 +412,7 @@ export function logpushSecretKey() {
   if (!envManager) return "";
 
   const secretkey = envManager.get("CF_LOGPUSH_R2_SECRET_KEY") || "";
-  if (onCloudflare() || onLocal()) return secretkey;
+  if (onCloudflare() || onLocal()) return secretkey || "";
 
   return "";
 }

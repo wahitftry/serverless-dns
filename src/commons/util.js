@@ -85,6 +85,34 @@ export function regionFromCf(req) {
 }
 
 /**
+ * returns true if tstamp is of form yyyy/epochMs
+ * ex: 2025/1740866164283
+ * @param {string} tstamp
+ * @returns {boolean}
+ */
+function isValidFullTimestamp(tstamp) {
+  if (typeof tstamp !== "string") return false;
+  return tstamp.indexOf("/") === 4;
+}
+
+/**
+ * from: github.com/celzero/downloads/blob/main/src/timestamp.js
+ * @param {string} tstamp is of form epochMs ("1740866164283") or yyyy/epochMs ("2025/1740866164283")
+ * @returns {int} blocklist create time (unix epoch) in millis (-1 on errors)
+ */
+export function bareTimestampFrom(tstamp) {
+  // strip out "/" if tstamp is of form yyyy/epochMs: "2025/1740866164283"
+  if (isValidFullTimestamp(tstamp)) {
+    tstamp = tstamp.split("/")[1];
+  }
+  const t = parseInt(tstamp);
+  if (isNaN(t)) {
+    return -1;
+  }
+  return t;
+}
+
+/**
  * @param {Request} request - Request
  * @return {Object} - Headers
  */
@@ -157,6 +185,13 @@ export function timedOp(op, ms, cleanup = (x) => {}) {
 
 // TODO: Use AbortSignal.timeout (supported on Node and Deno, too)?
 // developers.cloudflare.com/workers/platform/changelog#2021-12-10
+/**
+ *
+ * @param {(...args: any[]) => Promise<*>} promisedOp
+ * @param {number} ms
+ * @param {(...args: any[]) => Promise<*>} defaultOp
+ * @returns
+ */
 export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   // aggregating promises is a valid use-case for the otherwise
   // "deferred promise anti-pattern". That is, using promise
@@ -187,7 +222,7 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
           resolve(out);
         }
       })
-      .catch((ignored) => {
+      .catch((_) => {
         clearTimeout(tid);
         if (!timedout) deferredOp();
         // else: handled by timeout
@@ -195,8 +230,19 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   });
 }
 
+/**
+ * Sets a timer which calls a function after ms milliseconds.
+ * Max ms allowed is 2147483647 (~24 days), and min is 0.
+ * @param {number} ms
+ * @param {(...args: any[]) => void} fn
+ * @returns
+ */
 export function timeout(ms, fn) {
   if (typeof fn !== "function") return -1;
+  // stackoverflow.com/a/62003170
+  // max allowed timeout is ~24 days (int as ms)
+  ms = ms > 2147483647 ? 2147483640 : ms;
+  ms = ms < 0 ? 0 : ms;
   const timer = setTimeout(fn, ms);
   if (typeof timer.unref === "function") timer.unref();
   return timer;
@@ -229,6 +275,11 @@ export function rand(min, max) {
 
 export function rolldice(sides = 6) {
   return rand(1, sides + 1);
+}
+
+export function yyyymm() {
+  const d = new Date();
+  return d.getUTCFullYear() + "/" + (d.getUTCMonth() + 1);
 }
 
 // stackoverflow.com/a/8084248

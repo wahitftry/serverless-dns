@@ -101,7 +101,7 @@ async function prep() {
       log.i("dev (local) tls setup from tls_key_path", l1, l2);
     } catch (ex) {
       // this can happen when running server in BLOCKLIST_DOWNLOAD_ONLY mode
-      log.w("Skipping TLS: test TLS crt/key missing; enable TLS offload");
+      log.w("Skipping TLS: test TLS crt/key missing; enable TLS offload", ex);
       tlsoffload = true;
     }
   }
@@ -126,7 +126,7 @@ async function prep() {
   system.pub("ready", [dns53]);
 }
 
-function setTlsVars(tlsKey, tlsCrt) {
+export function setTlsVars(tlsKey, tlsCrt) {
   envManager.set("TLS_KEY", tlsKey);
   envManager.set("TLS_CRT", tlsCrt);
 }

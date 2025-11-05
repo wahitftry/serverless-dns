@@ -5,10 +5,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import * as cfg from "../core/cfg.js";
-import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
+import * as util from "../commons/util.js";
 import * as pres from "./plugin-response.js";
 
 const minTtlSec = 30; // 30s
@@ -164,13 +163,15 @@ export function makeHttpCacheValue(data) {
 
 /**
  * @param {any} packet
+ * @param {ts} string
  * @returns {URL}
  */
-export function makeHttpCacheKey(packet) {
+export function makeHttpCacheKey(packet, ts) {
   const id = makeId(packet); // ex: domain.tld:A:dnssec
   if (util.emptyString(id)) return null;
+  if (util.emptyString(ts)) ts = util.yyyymm();
 
-  return new URL(_cacheurl + cfg.timestamp() + "/" + id);
+  return new URL(_cacheurl + ts + "/" + id);
 }
 
 /**
@@ -255,5 +256,34 @@ export function isAnswerFresh(m, n = 0) {
 export function updatedAnswer(dnsPacket, qid, expiry) {
   updateQueryId(dnsPacket, qid);
   updateTtl(dnsPacket, expiry);
+  trimAQuadAAnswer(dnsPacket);
   return dnsPacket;
+}
+
+function trimAQuadAAnswer(decodedDnsPacket) {
+  // retain only the first answer, drop the rest
+  if (
+    !dnsutil.hasSingleQuestion(decodedDnsPacket) ||
+    !dnsutil.isQueryAQuadA(decodedDnsPacket) ||
+    !dnsutil.hasAnswers(decodedDnsPacket)
+  ) {
+    return;
+  }
+
+  let dotrim = false;
+  const trimmed = new Array(0);
+  for (const a of decodedDnsPacket.answers) {
+    if (dnsutil.isAnswerCname(a)) {
+      trimmed.push(a);
+    }
+    if (dnsutil.isAnswerA(a) || dnsutil.isAnswerAAAA(a)) {
+      trimmed.push(a);
+      dotrim = true;
+      break;
+    }
+  }
+  if (dotrim) {
+    decodedDnsPacket.answers = trimmed;
+  } // else: nothing to trim, return as-is
+  return;
 }

@@ -54,10 +54,19 @@ recBlockstamps.set("ps", "1:GNwB-ACgeQKr7cg3YXoAgA==");
 
 /**
  * @param {BlocklistFilter} blf
- * @returns {boolean}
+ * @returns {boolean} true if blf is setup
  */
 export function isBlocklistFilterSetup(blf) {
   return blf && !util.emptyObj(blf.ftrie);
+}
+
+/**
+ * alias for util#bareTimestampFrom
+ * @type {string} tstamp is of form epochMs ("1740866164283") or yyyy/epochMs ("2025/1740866164283")
+ * @returns {int} blocklist create time (unix epoch) in millis (-1 on errors)
+ */
+export function bareTimestampFrom(tstamp) {
+  return util.bareTimestampFrom(tstamp);
 }
 
 /**
@@ -414,12 +423,22 @@ export function base64ToUintV1(b64Flag) {
 
 /**
  * @param {string} b64Flag
- * @returns {Uint16Array}
+ * @returns {Uint16Array?}
  */
 export function base32ToUintV1(flag) {
-  // TODO: check for empty flag
-  const b32 = decodeURI(flag);
-  return bufutil.decodeFromBinaryArray(rbase32(b32));
+  try {
+    if (util.emptyString(flag)) return null;
+    const b32 = decodeURI(flag);
+    if (util.emptyString(b32)) return null;
+
+    const decoded = rbase32(b32);
+    if (util.emptyString(decoded)) return null;
+
+    return bufutil.decodeFromBinaryArray(decoded);
+  } catch (e) {
+    log.w("Rdns:base32ToUintV1", "error decoding b32 flag", e);
+  }
+  return null;
 }
 
 /**
@@ -466,7 +485,7 @@ export function stampVersion(s) {
 // TODO: The logic to parse stamps must be kept in sync with:
 // github.com/celzero/website-dns/blob/8e6056bb/src/js/flag.js#L260-L425
 /**
- *
+ * May return empty BlockstampInfo if flag is invalid or empty.
  * @param {string} flag
  * @returns {pres.BlockstampInfo}
  */
@@ -490,7 +509,7 @@ export function unstamp(flag) {
   } else if (v === "1") {
     const convertor = isFlagB32 ? base32ToUintV1 : base64ToUintV1;
     const f = s[1];
-    r.userBlocklistFlagUint = convertor(f) || null;
+    r.userBlocklistFlagUint = convertor(f) || null; // convertor may return null
   } else {
     log.w("Rdns:unstamp", "unknown blocklist stamp version in " + s);
   }
@@ -509,34 +528,6 @@ export function hasBlockstamp(blockInfo) {
 }
 
 /**
- * returns true if tstamp is of form yyyy/epochMs
- * @param {string} tstamp
- * @returns {boolean}
- */
-function isValidFullTimestamp(tstamp) {
-  if (typeof tstamp !== "string") return false;
-  return tstamp.indexOf("/") === 4;
-}
-
-/**
- * from: github.com/celzero/downloads/blob/main/src/timestamp.js
- * @param {string} tstamp
- * @returns {int} epoch
- */
-export function bareTimestampFrom(tstamp) {
-  // strip out "/" if tstamp is of form yyyy/epochMs
-  if (isValidFullTimestamp(tstamp)) {
-    tstamp = tstamp.split("/")[1];
-  }
-  const t = parseInt(tstamp);
-  if (isNaN(t)) {
-    log.w("Rdns bareTstamp: NaN", tstamp);
-    return 0;
-  }
-  return t;
-}
-
-/**
  * @param {string} strflag
  * @returns {string[]} blocklist names
  */
@@ -545,8 +536,6 @@ export function blocklists(strflag) {
   const blocklists = [];
   if (flagVersion === "1") {
     return trie.flagsToTags(userBlocklistFlagUint);
-  } else {
-    throw new Error("unknown blocklist version: " + flagVersion);
-  }
+  } // unknown blocklist version
   return blocklists;
 }
